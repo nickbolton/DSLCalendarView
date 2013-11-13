@@ -61,6 +61,8 @@
 
 #pragma mark - Memory management
 
+- (void)dealloc {
+}
 
 
 #pragma mark - Initialisation
@@ -86,12 +88,11 @@
 }
 
 - (void)commonInit {
+    _allowsRangeSelection = YES;
     _dayViewHeight = 44;
     
     _visibleMonth = [[NSCalendar currentCalendar] components:NSYearCalendarUnit | NSMonthCalendarUnit | NSDayCalendarUnit | NSWeekdayCalendarUnit | NSCalendarCalendarUnit fromDate:[NSDate date]];
     _visibleMonth.day = 1;
-    
-    _showDayCalloutView = YES;
     
     self.monthSelectorView = [[[self class] monthSelectorViewClass] view];
     self.monthSelectorView.backgroundColor = [UIColor clearColor];
@@ -224,7 +225,7 @@
     CGFloat restingHeight = 0;
     
     NSComparisonResult monthComparisonResult = [month.date compare:fromMonth.date];
-    NSTimeInterval animationDuration = (monthComparisonResult == NSOrderedSame || !animated) ? 0.0 : 0.5;
+    NSTimeInterval animationDuration = (monthComparisonResult == NSOrderedSame || !animated) ? 0.0 : 0.25;
     
     NSMutableArray *activeMonthViews = [[NSMutableArray alloc] init];
     
@@ -307,7 +308,13 @@
     }
     
     self.userInteractionEnabled = NO;
-    [UIView animateWithDuration:animationDuration delay:0.0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+    [UIView
+     animateWithDuration:animationDuration
+     delay:0.0f
+     usingSpringWithDamping:.7f
+     initialSpringVelocity:15.0f
+     options:UIViewAnimationOptionCurveEaseInOut
+     animations:^{
         for (NSInteger index = 0; index < activeMonthViews.count; index++) {
             DSLCalendarMonthView *monthView = [activeMonthViews objectAtIndex:index];
              for (DSLCalendarDayView *dayView in monthView.dayViews) {
@@ -404,11 +411,18 @@
     }
     
     DSLCalendarRange *newRange;
-    if ([touchedView.day.date compare:self.draggingFixedDay.date] == NSOrderedAscending) {
-        newRange = [[DSLCalendarRange alloc] initWithStartDay:touchedView.day endDay:self.draggingFixedDay];
+
+    if (self.allowsRangeSelection) {
+        if ([touchedView.day.date compare:self.draggingFixedDay.date] == NSOrderedAscending) {
+            newRange = [[DSLCalendarRange alloc] initWithStartDay:touchedView.day endDay:self.draggingFixedDay];
+        }
+        else {
+            newRange = [[DSLCalendarRange alloc] initWithStartDay:self.draggingFixedDay endDay:touchedView.day];
+        }
     }
     else {
-        newRange = [[DSLCalendarRange alloc] initWithStartDay:self.draggingFixedDay endDay:touchedView.day];
+        newRange = [[DSLCalendarRange alloc] initWithStartDay:touchedView.day endDay:touchedView.day];
+
     }
 
     if ([self.delegate respondsToSelector:@selector(calendarView:didDragToDay:selectingRange:)]) {
@@ -505,7 +519,7 @@
     if (dayView == nil) {
         [self.dayCalloutView removeFromSuperview];
     }
-    else if([self showDayCalloutView]){
+    else {
         CGRect calloutFrame = [self convertRect:dayView.frame fromView:dayView.superview];
         calloutFrame.origin.y -= calloutFrame.size.height;
         calloutFrame.size.height *= 2;
